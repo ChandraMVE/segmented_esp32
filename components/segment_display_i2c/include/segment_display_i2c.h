@@ -1,0 +1,15 @@
+/*
+ * segment_display_i2c.h
+ *
+ *  Created on: Aug 24, 2022
+ *      Author: chand
+ */
+
+#ifndef COMPONENTS_SEGMENT_DISPLAY_I2C_INCLUDE_SEGMENT_DISPLAY_I2C_H_
+#define COMPONENTS_SEGMENT_DISPLAY_I2C_INCLUDE_SEGMENT_DISPLAY_I2C_H_
+
+
+void lcd_init(void);
+
+
+#endif /* COMPONENTS_SEGMENT_DISPLAY_I2C_INCLUDE_SEGMENT_DISPLAY_I2C_H_ */

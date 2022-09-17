@@ -1,0 +1,10 @@
+# ignore ALL .log files
+*.log
+.cproject
+.settings/
+.project
+
+# ignore ALL files in ANY directory named temp
+temp/
+build/
+esp_idf_components/
