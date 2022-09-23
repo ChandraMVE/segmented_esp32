@@ -13,6 +13,7 @@
 #include "esp_console.h"
 #include "esp_log.h"
 #include "segment_display_i2c.h"
+#include "adc.h"
 
 static const char *TAG = "SEG-DISP";
 
@@ -183,6 +184,85 @@ static esp_err_t SMS12130B_speed(uint8_t digit2, uint8_t digit1, uint8_t digit0)
 	return err;
 }
 
+static esp_err_t SMS12130B_speed_incbar(uint8_t digit2, uint8_t digit1, uint8_t digit0, uint8_t speed)
+{
+	uint8_t i,j = 16,barptr = 0, speedptr = 0;
+	esp_err_t err;
+	struct disp_buf write_buf;
+	uint8_t speedbar[10*16] = {0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFC, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFF, 0X20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFF, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFF, 0xFD, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFF, 0xFF, 0X50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFF, 0xFF, 0XF8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x0E, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+							0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	uint8_t speeddisp[16] = {digit2, 0x00, 0x00, 0x00, (0x06 | 0x00 | Vbat_low), (0x01 | digit0), (digit2 | digit1), 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01};
+
+//	for(j=0;j<9;j++)
+	{
+		for(i=0; i<32; i+=2)
+		{
+			if(speed == 0)
+			{
+				barptr = 9*j;
+			}
+			else if(speed >0 && speed <=10)
+			{
+				barptr = 0*j;
+			}
+			else if(speed >10 && speed <=20)
+			{
+				barptr = 1*j;
+			}
+			else if(speed >20 && speed <=30)
+			{
+				barptr = 2*j;
+			}
+			else if(speed >30 && speed <=40)
+			{
+				barptr = 3*j;
+			}
+			else if(speed >40 && speed <=50)
+			{
+				barptr = 4*j;
+			}
+			else if(speed >50 && speed <=60)
+			{
+				barptr = 5*j;
+			}
+			else if(speed >60 && speed <=70)
+			{
+				barptr = 6*j;
+			}
+			else if(speed >70 && speed <=80)
+			{
+				barptr = 7*j;
+			}
+			else if(speed >80 && speed <=90)
+			{
+				barptr = 8*j;
+			}
+			else if(speed > 90 && speed <= 200)
+			{
+				barptr = 8*j;
+			}
+
+			write_buf.SADDR = 0xE0;
+			write_buf.ICADDR = i;
+			write_buf.UCDATA = speeddisp[speedptr] | speedbar[barptr + speedptr];
+			err = i2c_master_write_to_device(I2C_MASTER_NUM, I2C_SMS12130B_ADDR, (uint8_t *)&write_buf, sizeof(write_buf), I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+			speedptr++;
+		}
+		vTaskDelay(25);
+	}
+
+	return err;
+}
+
 static uint8_t convert_display(uint8_t data)
 {
 	switch(data)
@@ -243,7 +323,8 @@ static void SMS12130B_speed_disp_conv(uint8_t speed)
 		digit2 = 0x01;
 	}
 
-	SMS12130B_speed(digit2, digit1, digit0);
+//	SMS12130B_speed(digit2, digit1, digit0);
+	SMS12130B_speed_incbar(digit2, digit1, digit0,speed);
 }
 
 void lcd_init(void)
@@ -256,18 +337,28 @@ void lcd_init(void)
 
 	SMS12130B_fill(0xff);
 	vTaskDelay(100);
-
 	SMS12130B_speedbar();
 	vTaskDelay(5);
 	SMS12130B_fill(0x00);
 	vTaskDelay(5);
 	uint8_t i;
+	uint32_t adc_reading;
 	while(1)
 	{
-		for(i=0;i<200;i++)
+		adc_reading = adc_get();
+		if(adc_reading)
+		{
+			i = (uint8_t)((adc_reading/20.475) - 1);
+		}
+		else
+		{
+			i =0;
+		}
+//		for(i=0;i<200;i++)
 		{
 			SMS12130B_speed_disp_conv(i);
 			Vbat_low = !Vbat_low;
+			printf("Raw: %d\tspeed: %d\n", adc_reading, i);
 		}
 	}
 }
